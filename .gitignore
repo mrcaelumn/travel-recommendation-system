@@ -1,5 +1,6 @@
 ### Python template
 
+models/rbm/data
 .idea/
 .vscode/
 # Byte-compiled / optimized / DLL files
