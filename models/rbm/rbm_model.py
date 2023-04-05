@@ -1,33 +1,24 @@
-import torch
+import tensorflow as tf
 
+# Define RBM model using TensorFlow 2
+class RBM(tf.keras.Model):
+    def __init__(self, _visible_bias, _hidden_units):
+        super(RBM, self).__init__()
+        self._visible_bias = tf.Variable(tf.random.normal([_visible_bias]), name='_visible_bias')
+        self._hidden_units = tf.Variable(tf.random.normal([_hidden_units]), name='_hidden_bias')
+        self._w_bias = tf.Variable(tf.random.normal([_visible_bias, _hidden_units]), name='_own_w')
 
-class RBM(torch.nn.Module):
-    def __init__(self, nv, nh):
-        super().__init__()
-        self.W = torch.randn(nh, nv)
-        self.a = torch.randn(1, nh)
-        self.b = torch.randn(1, nv)
-    
-    @torch.jit.export
-    def sample_h(self, x):
-        wx = torch.mm(x, self.W.t())
-        activation = wx + self.a.expand_as(wx)
-        p_h_given_v = torch.sigmoid(activation)
-        return p_h_given_v, torch.bernoulli(p_h_given_v)
+    def call(self, inputs):
+        hidden_layer = tf.nn.sigmoid(tf.matmul(inputs, self._w_bias) + self._hidden_units)
+        reconstructed_layer = tf.nn.sigmoid(tf.matmul(hidden_layer, tf.transpose(self._w_bias)) + self._visible_bias)
+        return reconstructed_layer
 
-    @torch.jit.export
-    def sample_v(self, y):
-        wy = torch.mm(y, self.W)
-        activation = wy + self.b.expand_as(wy)
-        p_v_given_h = torch.sigmoid(activation)
-        return p_v_given_h, torch.bernoulli(p_v_given_h)
-    @torch.jit.export
-    def train(self, v0, vk, ph0, phk):
-        self.W += (torch.mm(v0.t(), ph0) - torch.mm(vk.t(), phk)).t()
-        self.b += torch.sum((v0 - vk), 0)
-        self.a += torch.sum((ph0 - phk), 0)
-    @torch.jit.export
-    def predict(self, x):
-        _, h = self.sample_h(x)
-        _, v = self.sample_v(h)
-        return v
+    def sample_hidden(self, inputs):
+        hidden_prob = tf.nn.sigmoid(tf.matmul(inputs, self._w_bias) + self._hidden_units)
+        hidden_state = tf.nn.relu(tf.sign(hidden_prob - tf.random.uniform(tf.shape(hidden_prob))))
+        return hidden_state
+
+    def sample_visible(self, inputs):
+        visible_prob = tf.nn.sigmoid(tf.matmul(inputs, self._w_bias, transpose_b=True) + self._visible_bias)
+        visible_state = tf.nn.relu(tf.sign(visible_prob - tf.random.uniform(tf.shape(visible_prob))))
+        return visible_state

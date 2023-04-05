@@ -1,14 +1,7 @@
-from models.rbm import RBM
+from typing import List, Dict
+from pydantic import BaseModel
 
-
-class RBMModelDTO(RBM):
-    """
-    DTO for dummy models.
-
-    It returned when accessing dummy models from the API.
-    """
-
-    id: int
-
-    class Config:
-        orm_mode = True
+class UserInput(BaseModel):
+    user_id: int
+    top_n: int = 10
+    ratings: list[int]

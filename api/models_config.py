@@ -7,8 +7,10 @@ import torch
 
 # Config that serves all environment
 GLOBAL_CONFIG = {
-    "RBM_MODEL_PATH": "models/rbm/weight/rbm_weight_model.pth",
-
+    "RBM_MODEL_PATH": "models/rbm/weight/rbm_weight_model",
+    "RBM_VISIBLE_UNITS": 1619,
+    "RBM_HIDDEN_UNITS": 100, 
+    "ALS_MODEL_PATH": "models/mf_als/weight/als_model_weight",
     "USE_CUDE_IF_AVAILABLE": True,
     "ROUND_DIGIT": 6
 }

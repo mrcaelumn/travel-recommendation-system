@@ -1,21 +1,22 @@
-from typing import List
-
 from fastapi import APIRouter
-from api.web.api.echo.schema import Message
-from fastapi.param_functions import Depends
+from api.web.api.predictions.schema import UserInput
+from api.web.api.predictions.models import OurModel
 
 router = APIRouter()
+models = OurModel()
 
-@router.post("/", response_model=Message)
-async def send_echo_message(
-    incoming_message: Message,
-) -> Message:
-    """
-    Sends echo back to user.
+@router.post("/recommendations/als")
+async def get_als_recommendations(user_input: UserInput):
+    
+    recommended_items = models.predict_als(user_input.user_id, user_input.top_n) 
+    
+    # Return the recommended items
+    return {"recommended_items": recommended_items}
 
-    :param incoming_message: incoming message.
-    :returns: message same as the incoming.
-    """
-    return incoming_message
-
-
+@router.post("/recommendations/rbm")
+async def get_rbm_recommendations(user_input: UserInput):
+    
+    recommended_items = models.predict_rbm(user_input.ratings, user_input.top_n) 
+    # print("recommended_items:", recommended_items.tolist())
+    # Return the recommended items
+    return {"recommended_items": recommended_items.tolist()}

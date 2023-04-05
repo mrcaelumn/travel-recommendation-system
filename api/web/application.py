@@ -14,10 +14,6 @@ from api.settings import settings
 from api.web.api.router import api_router
 from api.web.lifetime import register_shutdown_event, register_startup_event
 
-import torch
-from api.models_config import CONFIG
-from loguru import logger
-
 APP_ROOT = Path(__file__).parent.parent
 
 
@@ -54,13 +50,6 @@ def get_app() -> FastAPI:
         openapi_url="/api/openapi.json",
         default_response_class=UJSONResponse,
     )
-
-    rbm_model = torch.jit.load(CONFIG['RBM_MODEL_PATH'])
-
-
-    app.package = {
-        "rbm_model": rbm_model
-    }
 
     # Adds startup and shutdown events.
     register_startup_event(app)

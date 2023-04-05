@@ -3,6 +3,7 @@
 models/data/
 models/raw_data/
 models/rbm/data/
+models/mf_als/data/
 *.zip
 .idea/
 .vscode/
