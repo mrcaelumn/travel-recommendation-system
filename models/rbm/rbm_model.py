@@ -1,5 +1,6 @@
 import tensorflow as tf
-
+import numpy as np
+import pandas as pd
 # Define RBM model using TensorFlow 2
 class RBM(tf.keras.Model):
     def __init__(self, _visible_bias, _hidden_units):
