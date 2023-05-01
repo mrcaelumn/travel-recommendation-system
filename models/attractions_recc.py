@@ -225,6 +225,7 @@ def get_image(name):
             return filename
 
 def top_recc(with_url, final):
+    # print(with_url)
     i=0
     while(1):
         first_recc = with_url.iloc[[i]]
