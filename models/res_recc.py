@@ -9,7 +9,7 @@ from ipywidgets import Layout, widgets
 from IPython.display import display, IFrame, HTML
 
 class get_recomendation:
-    def __init__(self) -> None:
+    def __init__(self, categories) -> None:
         weight_path = "hybrid_model/weight/"
         # load the model from a file
         with open(weight_path + 'knn_weights.pkl', 'rb') as f:
@@ -18,7 +18,7 @@ class get_recomendation:
         # load the model weights from a file
         with open(weight_path + 'kmeans_weights.pkl', 'rb') as f:
             self.kmeans_model = pickle.load(f)
-        
+        self.categories = categories
         self.reviews_data = pd.read_csv('hybrid_model/data/final_data_train.csv')
         self.reviews_data_kmeans = pd.read_csv('hybrid_model/data/final_data_reviews_kmeans.csv')
         self.reviews_data_kmeans['cluster'] = self.kmeans_model.predict(self.reviews_data_kmeans[['review_star','sentiment_score', 'state', 'city']])
@@ -61,7 +61,16 @@ class get_recomendation:
 
         data = data[['review_star', 'business_id']]
         grouped_data = data.groupby(['business_id']).agg({'review_star': 'mean'})
-        sorted_data = grouped_data.sort_values(by='review_star', ascending=False)
+        
+        df_merged = pd.merge(grouped_data, self.business_data, on='business_id', how='left')
+        filtered_df = df_merged[df_merged['categories'].str.contains('|'.join(self.categories))]
+        
+        df_result = filtered_df[['business_id', 'review_star']]
+
+
+
+        sorted_data = df_result.sort_values(by='review_star', ascending=False)
+        sorted_data.set_index('business_id', inplace=True)
         kmeans_recs = sorted_data.head(100).to_dict()['review_star']
 
         return kmeans_recs
@@ -110,14 +119,21 @@ class get_recomendation:
 
         # Group the filtered reviews dataframe by business_id and calculate the mean review_star for each group
         review_stars = filtered_reviews.groupby('business_id')['review_star'].mean().reset_index()
-        sorted_data = review_stars.sort_values('review_star', ascending=False)
+        # Perform a left join on the 'key' column
+        df_merged = pd.merge(review_stars, self.business_data, on='business_id', how='left')
+        filtered_df = df_merged[df_merged['categories'].str.contains('|'.join(self.categories))]
+        
+        df_result = filtered_df[['business_id', 'review_star']]
+
+
+        sorted_data = df_result.sort_values('review_star', ascending=False)
         # print(sorted_data)
         sorted_data.set_index('business_id', inplace=True)
         knn_recs = sorted_data.head(100).to_dict()['review_star']
 
         return knn_recs
 
-    def recc(self, user_id, top_n = 10):
+    def recc(self, user_id, date_range, top_n = 10):
         # Assuming you have the KNN and K-means recommendation dictionaries stored as knn_recs and kmeans_recs respectively
 
         user = self.reviews_data.sample(n = 1, replace = True)
@@ -126,7 +142,8 @@ class get_recomendation:
         kmeans_recs = self.get_kmeans_recc(user_id)
         knn_recs = self.get_knn_recc(user_id)
         
-        
+        print(kmeans_recs)
+        print(knn_recs)
 
         # Combine the two dictionaries into a single dictionary with the restaurant names as keys and the weighted average scores as values
         combined_recs = []
@@ -154,136 +171,171 @@ class get_recomendation:
             name = row['name'].iloc[0]
             city = row['city'].iloc[0]
             state = row['state'].iloc[0]
-            latitude = row['latitude'].iloc[0]
-            longitude = row['longitude'].iloc[0]
             categories = row['categories'].iloc[0]
             stars = row['stars'].iloc[0]
-            hours = row['hours'].iloc[0]
             
             # add the business_id, rating_star, location, and name to the results list
             results.append({
                 'business_id': rating['business_id'], 
                 'review_star': rating['review_star'], 
                 'name': name,
-                'address': address,
-                'city': city, 
-                'state': state, 
-                'latitude': latitude, 
-                'longitude': longitude, 
+                'address': str(address) + ' ' + str(city) + ' ' + str(state),
                 'categories': categories,
                 'stars': stars,
-                'hours': hours,
+                'image': None,
                 })
 
 
         # display the result
         # print(results)
         # Create a dictionary to hold the final recommendations for each meal
-        final_recs = {"breakfast": [], "lunch": [], "dinner": []}
+        all_of_recc = []
+        for i in range(1,(date_range).days+2):
+            final_recs = {"breakfast": [], "lunch": [], "dinner": []}
 
-        # Iterate over the sorted recommendations and assign them to the appropriate meal, up to a maximum of 2 recommendations per meal
-        for rest in results:
-            if len(final_recs["breakfast"]) < 2:
-                final_recs["breakfast"].append(rest)
-            elif len(final_recs["lunch"]) < 2:
-                final_recs["lunch"].append(rest)
-            elif len(final_recs["dinner"]) < 2:
-                final_recs["dinner"].append(rest)
+            # Iterate over the sorted recommendations and assign them to the appropriate meal, up to a maximum of 2 recommendations per meal
+            for i in range(len(results)-1, -1, -1):
+            # for rest in results:
+                rest = results.pop(i)
+                rest["image"] = self.get_image(rest["name"])
+                if len(final_recs["breakfast"]) < 2:
+                    final_recs["breakfast"].append(rest)
+                elif len(final_recs["lunch"]) < 2:
+                    final_recs["lunch"].append(rest)
+                elif len(final_recs["dinner"]) < 2:
+                    final_recs["dinner"].append(rest)
+                else:
+                    break
+
+            all_of_recc.append(final_recs)
+        print(all_of_recc)
+
+        return all_of_recc
+
+def check_images(list_images):
+    final_images = []
+    default_image = "etl/attractions.png"
+
+    if list_images == None:
+        final_images.append(default_image)
+    else:
+        for im in list_images:
+            if im is not None:
+                final_images.append(im)
             else:
-                break
-        print(final_recs)
-
-        return final_recs
-    
-    def final_output(days, final):
-        time = ['breakfast', 'lunch', 'dinner']
-        fields = ['NAME', 'CATEGORY', 'LOCATION', 'PRICE', 'RATING']
-        recommendations = ['Recommendation 1:', 'Recommendation 2:']
-
-        box_layout = Layout(justify_content='space-between',
-                            display='flex',
-                            flex_flow='row', 
-                            align_items='stretch',
-                        )
-        column_layout = Layout(justify_content='space-between',
-                            width='75%',
-                            display='flex',
-                            flex_flow='column', 
-                        )
-        tab = []
-        for i in range(days):
-
-            start_idx = i*4
-            end_idx = (i+1)*4
-            images = final['image'][start_idx:end_idx]
-                
-                
-            final_images = []
-            for i in images:
-                image = "etl/attractions.png"
-                if i is not None:
-                    image = i
-                final_images.append(image)
-
-            images = [open(i, "rb").read() for i in final_images]
-    
+                final_images.append(default_image)
         
 
+    first_images = [open(i, "rb").read() for i in final_images]
+    return first_images
 
-            name = [re.sub('_',' ',i).capitalize() for i in final['name'][start_idx:end_idx]]
+def final_output(days, final):
+    time = ['breakfast', 'lunch', 'dinner']
+    fields = ['NAME', 'CATEGORY', 'LOCATION', 'RATING']
+    recommendations = ['Recommendation 1:', 'Recommendation 2:']
 
-            category = [re.sub('_',' ',i).capitalize() for i in final['category'][start_idx:end_idx]]
-            location = ["("+str(i[0])+","+str(i[1])+")" for i in final['location'][start_idx:end_idx]]
-            price = [str(i) for i in final['price'][start_idx:end_idx]]
-            rating = [str(i) for i in final['rating'][start_idx:end_idx]]
-            tab.append(VBox(children=
-                            [HBox(children=
-                                [VBox(children=
-                                        [widgets.HTML(value = f"<b><font color='orange'>{time[0]}</b>"),
-                                        widgets.HTML(value = f"<b><font color='purple'>{recommendations[0]}</b>"),
-                                        widgets.Image(value=images[0], format='jpg', width=300, height=400), 
-                                        widgets.HTML(description=fields[0], value=f"<b><font color='black'>{name[0]}</b>", disabled=True), 
-                                        widgets.HTML(description=fields[1], value=f"<b><font color='black'>{category[0]}</b>", disabled=True),
-                                        widgets.HTML(description=fields[2], value=f"<b><font color='black'>{location[0]}</b>", disabled=True), 
-                                        widgets.HTML(description=fields[3], value=f"<b><font color='black'>{price[0]}</b>", disabled=True), 
-                                        widgets.HTML(description=fields[4], value=f"<b><font color='black'>{rating[0]}</b>", disabled=True)
-                                        ], layout=column_layout), 
-                                    VBox(children=
-                                        [widgets.HTML(value = f"<b><font color='orange'>{time[1]}</b>"), 
-                                        widgets.HTML(value = f"<b><font color='purple'>{recommendations[0]}</b>"),
-                                        widgets.Image(value=images[2], format='jpg', width=300, height=400), 
-                                        widgets.HTML(description=fields[0], value=f"<b><font color='black'>{name[2]}</b>", disabled=True), 
-                                        widgets.HTML(description=fields[1], value=f"<b><font color='black'>{category[2]}</b>", disabled=True),
-                                        widgets.HTML(description=fields[2], value=f"<b><font color='black'>{location[2]}</b>", disabled=True), 
-                                        widgets.HTML(description=fields[3], value=f"<b><font color='black'>{price[2]}</b>", disabled=True), 
-                                        widgets.HTML(description=fields[4], value=f"<b><font color='black'>{rating[2]}</b>", disabled=True)
-                                        ], layout=column_layout)
-                                ], layout=box_layout),
+    box_layout = Layout(justify_content='space-between',
+                        display='flex',
+                        flex_flow='row', 
+                        align_items='stretch',
+                    )
+    column_layout = Layout(justify_content='space-between',
+                        width='75%',
+                        display='flex',
+                        flex_flow='column', 
+                    )
+    
+    tab = []
+    for i in range(days):
+        # print(final[i]['breakfast'])
+        # print(final[i]['lunch'])
+        # print(final[i]['dinner'])
+
+
+        # for j in final[i]:
+        #     print(final[i][j][0]["name"], final[i][j][1]["name"])
+
+            
+        breakfeast_first_recom_image = check_images(final[i]['breakfast'][0]["image"])
+        lunch_first_recom_image = check_images(final[i]['lunch'][0]["image"])
+        dinner_first_recom_image = check_images(final[i]['dinner'][0]["image"])
+
+        breakfeast_second_recom_image = check_images(final[i]['breakfast'][1]["image"])
+        lunch_second_recom_image = check_images(final[i]['lunch'][1]["image"])
+        dinner_second_recom_image = check_images(final[i]['dinner'][1]["image"])
+
+
+
+        tab.append(VBox(children=
+                        [HBox(children=
+                            [VBox(children=
+                                    [widgets.HTML(value = f"<b><font color='orange'>{time[0]}</b>"),
+                                    widgets.HTML(value = f"<b><font color='purple'>{recommendations[0]}</b>"),
+                                    widgets.Image(value=breakfeast_first_recom_image[0], format='jpg', width=300, height=400), 
+                                    widgets.HTML(description=fields[0], value=f"<b><font color='black'>{final[i]['breakfast'][0]['name']}</b>", disabled=True), 
+                                    widgets.HTML(description=fields[1], value=f"<b><font color='black'>{final[i]['breakfast'][0]['categories']}</b>", disabled=True),
+                                    widgets.HTML(description=fields[2], value=f"<b><font color='black'>{final[i]['breakfast'][0]['address']}</b>", disabled=True), 
+                                    widgets.HTML(description=fields[3], value=f"<b><font color='black'>{final[i]['breakfast'][0]['stars']}</b>", disabled=True), 
+    
+                                    ], layout=column_layout), 
+                                VBox(children=
+                                    [widgets.HTML(value = f"<b><font color='orange'>{time[1]}</b>"), 
+                                    widgets.HTML(value = f"<b><font color='purple'>{recommendations[0]}</b>"),
+                                    widgets.Image(value=lunch_first_recom_image[0], format='jpg', width=300, height=400), 
+                                    widgets.HTML(description=fields[0], value=f"<b><font color='black'>{final[i]['lunch'][0]['name']}</b>", disabled=True), 
+                                    widgets.HTML(description=fields[1], value=f"<b><font color='black'>{final[i]['lunch'][0]['categories']}</b>", disabled=True),
+                                    widgets.HTML(description=fields[2], value=f"<b><font color='black'>{final[i]['lunch'][0]['address']}</b>", disabled=True), 
+                                    widgets.HTML(description=fields[3], value=f"<b><font color='black'>{final[i]['lunch'][0]['stars']}</b>", disabled=True), 
+                                    ], layout=column_layout),
+
+                                VBox(children=
+                                    [widgets.HTML(value = f"<b><font color='orange'>{time[2]}</b>"), 
+                                    widgets.HTML(value = f"<b><font color='purple'>{recommendations[0]}</b>"),
+                                    widgets.Image(value=dinner_first_recom_image[0], format='jpg', width=300, height=400), 
+                                    widgets.HTML(description=fields[0], value=f"<b><font color='black'>{final[i]['dinner'][0]['name']}</b>", disabled=True), 
+                                    widgets.HTML(description=fields[1], value=f"<b><font color='black'>{final[i]['dinner'][0]['categories']}</b>", disabled=True),
+                                    widgets.HTML(description=fields[2], value=f"<b><font color='black'>{final[i]['dinner'][0]['address']}</b>", disabled=True), 
+                                    widgets.HTML(description=fields[3], value=f"<b><font color='black'>{final[i]['dinner'][0]['stars']}</b>", disabled=True), 
+                                    ], layout=column_layout)
+
+                            ], layout=box_layout),
+
 
                             HBox(children=
-                                [VBox(children=
-                                        [widgets.HTML(value = f"<b><font color='purple'>{recommendations[1]}</b>"),
-                                        widgets.Image(value=images[1], format='jpg', width=300, height=400), 
-                                        widgets.HTML(description=fields[0], value=f"<b><font color='black'>{name[1]}</b>", disabled=True), 
-                                        widgets.HTML(description=fields[1], value=f"<b><font color='black'>{category[1]}</b>", disabled=True),
-                                        widgets.HTML(description=fields[2], value=f"<b><font color='black'>{location[1]}</b>", disabled=True), 
-                                        widgets.HTML(description=fields[3], value=f"<b><font color='black'>{price[1]}</b>", disabled=True), 
-                                        widgets.HTML(description=fields[4], value=f"<b><font color='black'>{rating[1]}</b>", disabled=True)
-                                        ], layout=column_layout), 
-                                    VBox(children=
-                                        [widgets.HTML(value = f"<b><font color='purple'>{recommendations[1]}</b>"),
-                                        widgets.Image(value=images[3], format='jpg', width=300, height=400), 
-                                        widgets.HTML(description=fields[0], value=f"<b><font color='black'>{name[3]}</b>", disabled=True), 
-                                        widgets.HTML(description=fields[1], value=f"<b><font color='black'>{category[3]}</b>", disabled=True),
-                                        widgets.HTML(description=fields[2], value=f"<b><font color='black'>{location[3]}</b>", disabled=True), 
-                                        widgets.HTML(description=fields[3], value=f"<b><font color='black'>{price[3]}</b>", disabled=True), 
-                                        widgets.HTML(description=fields[4], value=f"<b><font color='black'>{rating[3]}</b>", disabled=True)
-                                        ], layout=column_layout),
-                                ], layout=box_layout)
+                            [VBox(children=
+                                    [widgets.HTML(value = f"<b><font color='purple'>{recommendations[1]}</b>"),
+                                    widgets.Image(value=breakfeast_second_recom_image[0], format='jpg', width=300, height=400), 
+                                    widgets.HTML(description=fields[0], value=f"<b><font color='black'>{final[i]['breakfast'][1]['name']}</b>", disabled=True), 
+                                    widgets.HTML(description=fields[1], value=f"<b><font color='black'>{final[i]['breakfast'][1]['categories']}</b>", disabled=True),
+                                    widgets.HTML(description=fields[2], value=f"<b><font color='black'>{final[i]['breakfast'][1]['address']}</b>", disabled=True), 
+                                    widgets.HTML(description=fields[3], value=f"<b><font color='black'>{final[i]['breakfast'][1]['stars']}</b>", disabled=True), 
+    
+                                    ], layout=column_layout), 
+                                VBox(children=
+                                    [widgets.HTML(value = f"<b><font color='purple'>{recommendations[1]}</b>"),
+                                    widgets.Image(value=lunch_second_recom_image[0], format='jpg', width=300, height=400), 
+                                    widgets.HTML(description=fields[0], value=f"<b><font color='black'>{final[i]['lunch'][1]['name']}</b>", disabled=True), 
+                                    widgets.HTML(description=fields[1], value=f"<b><font color='black'>{final[i]['lunch'][1]['categories']}</b>", disabled=True),
+                                    widgets.HTML(description=fields[2], value=f"<b><font color='black'>{final[i]['lunch'][1]['address']}</b>", disabled=True), 
+                                    widgets.HTML(description=fields[3], value=f"<b><font color='black'>{final[i]['lunch'][1]['stars']}</b>", disabled=True), 
+                                    ], layout=column_layout),
 
-                            ]))
+                                VBox(children=
+                                    [widgets.HTML(value = f"<b><font color='purple'>{recommendations[1]}</b>"),
+                                    widgets.Image(value=dinner_second_recom_image[0], format='jpg', width=300, height=400), 
+                                    widgets.HTML(description=fields[0], value=f"<b><font color='black'>{final[i]['dinner'][1]['name']}</b>", disabled=True), 
+                                    widgets.HTML(description=fields[1], value=f"<b><font color='black'>{final[i]['dinner'][1]['categories']}</b>", disabled=True),
+                                    widgets.HTML(description=fields[2], value=f"<b><font color='black'>{final[i]['dinner'][1]['address']}</b>", disabled=True), 
+                                    widgets.HTML(description=fields[3], value=f"<b><font color='black'>{final[i]['dinner'][1]['stars']}</b>", disabled=True), 
+                                    ], layout=column_layout)
 
-        tab_recc = widgets.Tab(children=tab)
-        for i in range(len(tab_recc.children)):
-            tab_recc.set_title(i, str('Day '+ str(i+1)))
-        return tab_recc
+                            ], layout=box_layout),
+
+
+
+                        ]))
+
+    tab_recc = widgets.Tab(children=tab)
+    for i in range(len(tab_recc.children)):
+        tab_recc.set_title(i, str('Day '+ str(i+1)))
+    return tab_recc
