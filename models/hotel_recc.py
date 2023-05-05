@@ -4,7 +4,7 @@ from IPython.display import display, IFrame
 import math, re, numpy as np, pyspark, glob
 from urllib.parse import quote
 from urllib.request import Request, urlopen
-from google_images_download import google_images_download
+from bing_image_downloader import downloader
 from pyspark.sql import SQLContext, functions, types
 from pyspark.ml.recommendation import ALS, ALSModel
 from pyspark.ml.evaluation import RegressionEvaluator
@@ -120,27 +120,18 @@ def get_hotel_recc(spark, usrid_s2):
     return u_tempdf
 
 def get_image(name):
-    name = re.sub(' ','_',name)
-    response = google_images_download.googleimagesdownload()
-    args_list = ["keywords", "keywords_from_file", "prefix_keywords", "suffix_keywords",
-             "limit", "format", "color", "color_type", "usage_rights", "size",
-             "exact_size", "aspect_ratio", "type", "time", "time_range", "delay", "url", "single_image",
-             "output_directory", "image_directory", "no_directory", "proxy", "similar_images", "specific_site",
-             "print_urls", "print_size", "print_paths", "metadata", "extract_metadata", "socket_timeout",
-             "thumbnail", "language", "prefix", "chromedriver", "related_images", "safe_search", "no_numbering",
-             "offset", "no_download"]
-    args = {}
-    for i in args_list:
-        args[i]= None
-    args["keywords"] = name
-    args['limit'] = 1
-    params = response.build_url_parameters(args)
-    url = 'https://www.google.com/search?q=' + quote(name) + '&espv=2&biw=1366&bih=667&site=webhp&source=lnms&tbm=isch' + params + '&sa=X&ei=XosDVaCXD8TasATItgE&ved=0CAcQ_AUoAg'
+    # print(name)
+    
+    name = name.replace("_", " ")
+
+    dir_path = "downloads"
     try:
-        response.download(args)
-        for filename in glob.glob("downloads/{name}/*jpg".format(name=name))+glob.glob("downloads/{name}/*png".format(name=name)):
+        resp = downloader.download(name, limit=1,  output_dir=dir_path, adult_filter_off=True, force_replace=False, timeout=60)
+        # print("download: ", resp)
+        for filename in glob.glob("downloads/{name}/*jpg".format(name=name)) + glob.glob("downloads/{name}/*png".format(name=name)):
             return filename
-    except:
+    except Exception as e:
+        print(e)
         for filename in glob.glob("downloads/*jpg"):
             return filename
         
@@ -165,7 +156,7 @@ def get_hotel_output(days, final):
         file_image = "etl/hotels.png"
 
         if final['image'][i] is not None:
-            print("Not None")
+            # print("Not None")
             file_image = final['image'][i]
 
         image = open(file_image, "rb").read()
@@ -174,6 +165,7 @@ def get_hotel_output(days, final):
         rating= final['rating'][i]
         experience= final['experience'][i]
         loc=final['location'][i]
+        # print(loc)
         address=final['address'][i]
         amenities=final['amenities'][i]
         tab.append(w.VBox(children=
@@ -184,7 +176,7 @@ def get_hotel_output(days, final):
                          w.HTML(description=fields[2], value=f"<b><font color='black'>{rating}</b>", disabled=True), 
                          w.HTML(description=fields[3], value=f"<b><font color='black'>{experience}</b>", disabled=True), 
                          w.HTML(description=fields[4], value=f"<b><font color='black'>{loc}</b>", disabled=True),
-                         w.HTML(description=fields[5], value=f"<b><font color='black'>{address}</b>", disabled=True)
+                         w.HTML(description=fields[5], value=f"<b><a color='black' href='https://maps.google.com/?q={loc}'>{address}</b>", disabled=True)
                         ], layout=column_layout))
 
     tab_recc = w.Tab(children=tab)

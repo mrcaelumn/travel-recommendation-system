@@ -1,6 +1,6 @@
 import pickle
 import pandas as pd
-from google_images_download import google_images_download
+from bing_image_downloader import downloader
 import re
 from urllib.parse import quote
 import glob
@@ -26,27 +26,18 @@ class get_recomendation:
         self.business_data = pd.read_csv('hybrid_model/data/business_restaurant_clean.csv')
     
     def get_image(self, name):
-        name = re.sub(' ','_',name)
-        response = google_images_download.googleimagesdownload()
-        args_list = ["keywords", "keywords_from_file", "prefix_keywords", "suffix_keywords",
-                "limit", "format", "color", "color_type", "usage_rights", "size",
-                "exact_size", "aspect_ratio", "type", "time", "time_range", "delay", "url", "single_image",
-                "output_directory", "image_directory", "no_directory", "proxy", "similar_images", "specific_site",
-                "print_urls", "print_size", "print_paths", "metadata", "extract_metadata", "socket_timeout",
-                "thumbnail", "language", "prefix", "chromedriver", "related_images", "safe_search", "no_numbering",
-                "offset", "no_download"]
-        args = {}
-        for i in args_list:
-            args[i]= None
-        args["keywords"] = name
-        args['limit'] = 1
-        params = response.build_url_parameters(args)
-        url = 'https://www.google.com/search?q=' + quote(name) + '&espv=2&biw=1366&bih=667&site=webhp&source=lnms&tbm=isch' + params + '&sa=X&ei=XosDVaCXD8TasATItgE&ved=0CAcQ_AUoAg'
+    # print(name)
+    
+        name = name.replace("_", " ")
+
+        dir_path = "downloads"
         try:
-            response.download(args)
-            for filename in glob.glob("downloads/{name}/*jpg".format(name=name))+glob.glob("downloads/{name}/*png".format(name=name)):
+            downloader.download(name, limit=1,  output_dir=dir_path, adult_filter_off=True, force_replace=False, timeout=60)
+            
+            for filename in glob.glob("downloads/{name}/*jpg".format(name=name)) + glob.glob("downloads/{name}/*png".format(name=name)):
                 return filename
-        except:
+        except Exception as e:
+            print(e)
             for filename in glob.glob("downloads/*jpg"):
                 return filename
     
@@ -173,6 +164,8 @@ class get_recomendation:
             state = row['state'].iloc[0]
             categories = row['categories'].iloc[0]
             stars = row['stars'].iloc[0]
+            lat = row['latitude'].iloc[0]
+            long = row['longitude'].iloc[0]
             
             # add the business_id, rating_star, location, and name to the results list
             results.append({
@@ -183,6 +176,7 @@ class get_recomendation:
                 'categories': categories,
                 'stars': stars,
                 'image': None,
+                'location': str(lat) + ', ' + str(long)
                 })
 
 
@@ -197,7 +191,9 @@ class get_recomendation:
             for i in range(len(results)-1, -1, -1):
             # for rest in results:
                 rest = results.pop(i)
-                rest["image"] = self.get_image(rest["name"])
+                print(rest["name"])
+                rest["image"] = [self.get_image(rest["name"])]
+
                 if len(final_recs["breakfast"]) < 2:
                     final_recs["breakfast"].append(rest)
                 elif len(final_recs["lunch"]) < 2:
@@ -213,6 +209,7 @@ class get_recomendation:
         return all_of_recc
 
 def check_images(list_images):
+    # print(list_images)
     final_images = []
     default_image = "etl/attractions.png"
 
@@ -225,7 +222,7 @@ def check_images(list_images):
             else:
                 final_images.append(default_image)
         
-
+    # print(final_images)
     first_images = [open(i, "rb").read() for i in final_images]
     return first_images
 
@@ -274,7 +271,7 @@ def final_output(days, final):
                                     widgets.Image(value=breakfeast_first_recom_image[0], format='jpg', width=300, height=400), 
                                     widgets.HTML(description=fields[0], value=f"<b><font color='black'>{final[i]['breakfast'][0]['name']}</b>", disabled=True), 
                                     widgets.HTML(description=fields[1], value=f"<b><font color='black'>{final[i]['breakfast'][0]['categories']}</b>", disabled=True),
-                                    widgets.HTML(description=fields[2], value=f"<b><font color='black'>{final[i]['breakfast'][0]['address']}</b>", disabled=True), 
+                                    widgets.HTML(description=fields[2], value=f"<b><a color='black' href='https://maps.google.com/?q={final[i]['breakfast'][0]['location']}'>{final[i]['breakfast'][0]['address']}</b>", disabled=True), 
                                     widgets.HTML(description=fields[3], value=f"<b><font color='black'>{final[i]['breakfast'][0]['stars']}</b>", disabled=True), 
     
                                     ], layout=column_layout), 
@@ -284,7 +281,7 @@ def final_output(days, final):
                                     widgets.Image(value=lunch_first_recom_image[0], format='jpg', width=300, height=400), 
                                     widgets.HTML(description=fields[0], value=f"<b><font color='black'>{final[i]['lunch'][0]['name']}</b>", disabled=True), 
                                     widgets.HTML(description=fields[1], value=f"<b><font color='black'>{final[i]['lunch'][0]['categories']}</b>", disabled=True),
-                                    widgets.HTML(description=fields[2], value=f"<b><font color='black'>{final[i]['lunch'][0]['address']}</b>", disabled=True), 
+                                    widgets.HTML(description=fields[2], value=f"<b><a color='black' href='https://maps.google.com/?q={final[i]['lunch'][0]['location']}'>{final[i]['lunch'][0]['address']}</b>", disabled=True), 
                                     widgets.HTML(description=fields[3], value=f"<b><font color='black'>{final[i]['lunch'][0]['stars']}</b>", disabled=True), 
                                     ], layout=column_layout),
 
@@ -294,7 +291,7 @@ def final_output(days, final):
                                     widgets.Image(value=dinner_first_recom_image[0], format='jpg', width=300, height=400), 
                                     widgets.HTML(description=fields[0], value=f"<b><font color='black'>{final[i]['dinner'][0]['name']}</b>", disabled=True), 
                                     widgets.HTML(description=fields[1], value=f"<b><font color='black'>{final[i]['dinner'][0]['categories']}</b>", disabled=True),
-                                    widgets.HTML(description=fields[2], value=f"<b><font color='black'>{final[i]['dinner'][0]['address']}</b>", disabled=True), 
+                                    widgets.HTML(description=fields[2], value=f"<b><a color='black' href='https://maps.google.com/?q={final[i]['dinner'][0]['location']}'>{final[i]['dinner'][0]['address']}</b>", disabled=True), 
                                     widgets.HTML(description=fields[3], value=f"<b><font color='black'>{final[i]['dinner'][0]['stars']}</b>", disabled=True), 
                                     ], layout=column_layout)
 
@@ -307,7 +304,7 @@ def final_output(days, final):
                                     widgets.Image(value=breakfeast_second_recom_image[0], format='jpg', width=300, height=400), 
                                     widgets.HTML(description=fields[0], value=f"<b><font color='black'>{final[i]['breakfast'][1]['name']}</b>", disabled=True), 
                                     widgets.HTML(description=fields[1], value=f"<b><font color='black'>{final[i]['breakfast'][1]['categories']}</b>", disabled=True),
-                                    widgets.HTML(description=fields[2], value=f"<b><font color='black'>{final[i]['breakfast'][1]['address']}</b>", disabled=True), 
+                                    widgets.HTML(description=fields[2], value=f"<b><a color='black' href='https://maps.google.com/?q={final[i]['breakfast'][1]['location']}'>{final[i]['breakfast'][1]['address']}</b>", disabled=True), 
                                     widgets.HTML(description=fields[3], value=f"<b><font color='black'>{final[i]['breakfast'][1]['stars']}</b>", disabled=True), 
     
                                     ], layout=column_layout), 
@@ -316,7 +313,7 @@ def final_output(days, final):
                                     widgets.Image(value=lunch_second_recom_image[0], format='jpg', width=300, height=400), 
                                     widgets.HTML(description=fields[0], value=f"<b><font color='black'>{final[i]['lunch'][1]['name']}</b>", disabled=True), 
                                     widgets.HTML(description=fields[1], value=f"<b><font color='black'>{final[i]['lunch'][1]['categories']}</b>", disabled=True),
-                                    widgets.HTML(description=fields[2], value=f"<b><font color='black'>{final[i]['lunch'][1]['address']}</b>", disabled=True), 
+                                    widgets.HTML(description=fields[2], value=f"<b><a color='black' href='https://maps.google.com/?q={final[i]['lunch'][1]['location']}'>{final[i]['lunch'][1]['address']}</b>", disabled=True), 
                                     widgets.HTML(description=fields[3], value=f"<b><font color='black'>{final[i]['lunch'][1]['stars']}</b>", disabled=True), 
                                     ], layout=column_layout),
 
@@ -325,7 +322,7 @@ def final_output(days, final):
                                     widgets.Image(value=dinner_second_recom_image[0], format='jpg', width=300, height=400), 
                                     widgets.HTML(description=fields[0], value=f"<b><font color='black'>{final[i]['dinner'][1]['name']}</b>", disabled=True), 
                                     widgets.HTML(description=fields[1], value=f"<b><font color='black'>{final[i]['dinner'][1]['categories']}</b>", disabled=True),
-                                    widgets.HTML(description=fields[2], value=f"<b><font color='black'>{final[i]['dinner'][1]['address']}</b>", disabled=True), 
+                                    widgets.HTML(description=fields[2], value=f"<b><a color='black' href='https://maps.google.com/?q={final[i]['dinner'][1]['location']}'>{final[i]['dinner'][1]['address']}</b>", disabled=True), 
                                     widgets.HTML(description=fields[3], value=f"<b><font color='black'>{final[i]['dinner'][1]['stars']}</b>", disabled=True), 
                                     ], layout=column_layout)
 

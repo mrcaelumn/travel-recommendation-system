@@ -5,10 +5,7 @@ from IPython.display import display, IFrame, HTML
 from utils import Util
 from rbm.rbm_model import RBM
 import math, re, datetime as dt, glob
-from urllib.parse import quote
-from urllib.request import Request, urlopen
-from google_images_download import google_images_download
-from PIL import Image
+from bing_image_downloader import downloader
 import nltk as nl
 from nltk.corpus import wordnet as wn
 
@@ -186,44 +183,37 @@ def get_recc(att_df, cat_rating):
     export(unseen, seen, 'rbm/final_data/'+filename, str(user))
     return filename, user, rbm_att
 
-def filter_df(filename, user, low, high, country, att_df):
+def filter_df(filename, user, low, high, city, att_df):
     recc_df = pd.read_csv('rbm/final_data/'+filename+'/user{u}_unseen.csv'.format(u=user), index_col=0)
     recc_df.columns = ['attraction_id', 'att_name', 'att_cat', 'att_price', 'score']
     recommendation = att_df[['attraction_id','name','category','city','latitude','longitude','price','country', 'rating']].set_index('attraction_id').join(recc_df[['attraction_id','score']].set_index('attraction_id'), how="inner").reset_index().sort_values("score",ascending=False)
     
-    filtered = recommendation[(recommendation.country == country) & (recommendation.price >= low) & (recommendation.price >= low)]
+    filtered = recommendation[(recommendation.city == city) & (recommendation.price >= low) & (recommendation.price >= low)]
     
     url = pd.read_json('etl/attractions_cat.json',orient='records')
     url['id'] = url.index
     with_url = filtered.set_index('attraction_id').join(url[['id','attraction']].set_index('id'), how="inner")
     return with_url
 
+
+
 def get_image(name):
-    name = name.split(",")[0]
-    response = google_images_download.googleimagesdownload()
-    args_list = ["keywords", "keywords_from_file", "prefix_keywords", "suffix_keywords",
-             "limit", "format", "color", "color_type", "usage_rights", "size",
-             "exact_size", "aspect_ratio", "type", "time", "time_range", "delay", "url", "single_image",
-             "output_directory", "image_directory", "no_directory", "proxy", "similar_images", "specific_site",
-             "print_urls", "print_size", "print_paths", "metadata", "extract_metadata", "socket_timeout",
-             "thumbnail", "language", "prefix", "chromedriver", "related_images", "safe_search", "no_numbering",
-             "offset", "no_download"]
-    args = {}
-    for i in args_list:
-        args[i]= None
-    args["keywords"] = name
-    args['limit'] = 1
-    params = response.build_url_parameters(args)
-    url = 'https://www.google.com/search?q=' + quote(name) + '&espv=2&biw=1366&bih=667&site=webhp&source=lnms&tbm=isch' + params + '&sa=X&ei=XosDVaCXD8TasATItgE&ved=0CAcQ_AUoAg'
+    # print(name)
+    
+    name = name.replace("_", " ")
+
+    dir_path = "downloads"
     try:
-        response.download(args)
-        
+        resp = downloader.download(name, limit=1,  output_dir=dir_path, adult_filter_off=True, force_replace=False, timeout=60)
+        # print("download: ", resp)
         for filename in glob.glob("downloads/{name}/*jpg".format(name=name)) + glob.glob("downloads/{name}/*png".format(name=name)):
             return filename
-    except:
+    except Exception as e:
+        print(e)
         for filename in glob.glob("downloads/*jpg"):
             return filename
-
+        
+              
 def top_recc(with_url, final):
     # print(with_url)
     i=0
@@ -262,8 +252,8 @@ def find_closest(with_url, loc, tod, final):
 
 
 def final_output(days, final):
-    time = ['MORNING', 'EVENING']
-    fields = ['NAME', 'CATEGORY', 'LOCATION', 'PRICE', 'RATING']
+    time = ['Morning', 'Evening']
+    fields = ['Name: ', 'Category: ', 'Location: ', 'Price: ', 'Rating: ']
     recommendations = ['Recommendation 1:', 'Recommendation 2:']
 
     box_layout = Layout(justify_content='space-between',
@@ -289,7 +279,7 @@ def final_output(days, final):
         start_idx = i*4
         end_idx = (i+1)*4
         images = final['image'][start_idx:end_idx]
-            
+        # print(images)
             
         final_images = []
         for i in images:
@@ -306,7 +296,7 @@ def final_output(days, final):
         name = [re.sub('_',' ',i).capitalize() for i in final['name'][start_idx:end_idx]]
 
         category = [re.sub('_',' ',i).capitalize() for i in final['category'][start_idx:end_idx]]
-        location = ["("+str(i[0])+","+str(i[1])+")" for i in final['location'][start_idx:end_idx]]
+        location = [str(i[0])+","+str(i[1]) for i in final['location'][start_idx:end_idx]]
         price = [str(i) for i in final['price'][start_idx:end_idx]]
         rating = [str(i) for i in final['rating'][start_idx:end_idx]]
         tab.append(VBox(children=
@@ -317,7 +307,7 @@ def final_output(days, final):
                                      widgets.Image(value=images[0], format='jpg', width=300, height=400), 
                                      widgets.HTML(description=fields[0], value=f"<b><font color='black'>{name[0]}</b>", disabled=True), 
                                      widgets.HTML(description=fields[1], value=f"<b><font color='black'>{category[0]}</b>", disabled=True),
-                                     widgets.HTML(description=fields[2], value=f"<b><font color='black'>{location[0]}</b>", disabled=True), 
+                                     widgets.HTML(description=fields[2], value=f"<b><a color='black' href='https://maps.google.com/?q={location[0]}'>click me</b>", disabled=True), 
                                      widgets.HTML(description=fields[3], value=f"<b><font color='black'>{price[0]}</b>", disabled=True), 
                                      widgets.HTML(description=fields[4], value=f"<b><font color='black'>{rating[0]}</b>", disabled=True)
                                     ], layout=column_layout), 
@@ -327,7 +317,7 @@ def final_output(days, final):
                                      widgets.Image(value=images[2], format='jpg', width=300, height=400), 
                                      widgets.HTML(description=fields[0], value=f"<b><font color='black'>{name[2]}</b>", disabled=True), 
                                      widgets.HTML(description=fields[1], value=f"<b><font color='black'>{category[2]}</b>", disabled=True),
-                                     widgets.HTML(description=fields[2], value=f"<b><font color='black'>{location[2]}</b>", disabled=True), 
+                                     widgets.HTML(description=fields[2], value=f"<b><a color='black' href='https://maps.google.com/?q={location[2]}'>click me</b>", disabled=True),
                                      widgets.HTML(description=fields[3], value=f"<b><font color='black'>{price[2]}</b>", disabled=True), 
                                      widgets.HTML(description=fields[4], value=f"<b><font color='black'>{rating[2]}</b>", disabled=True)
                                     ], layout=column_layout)
@@ -339,7 +329,7 @@ def final_output(days, final):
                                      widgets.Image(value=images[1], format='jpg', width=300, height=400), 
                                      widgets.HTML(description=fields[0], value=f"<b><font color='black'>{name[1]}</b>", disabled=True), 
                                      widgets.HTML(description=fields[1], value=f"<b><font color='black'>{category[1]}</b>", disabled=True),
-                                     widgets.HTML(description=fields[2], value=f"<b><font color='black'>{location[1]}</b>", disabled=True), 
+                                     widgets.HTML(description=fields[2], value=f"<b><a color='black' href='https://maps.google.com/?q={location[1]}'>click me</b>", disabled=True),
                                      widgets.HTML(description=fields[3], value=f"<b><font color='black'>{price[1]}</b>", disabled=True), 
                                      widgets.HTML(description=fields[4], value=f"<b><font color='black'>{rating[1]}</b>", disabled=True)
                                     ], layout=column_layout), 
@@ -348,7 +338,7 @@ def final_output(days, final):
                                      widgets.Image(value=images[3], format='jpg', width=300, height=400), 
                                      widgets.HTML(description=fields[0], value=f"<b><font color='black'>{name[3]}</b>", disabled=True), 
                                      widgets.HTML(description=fields[1], value=f"<b><font color='black'>{category[3]}</b>", disabled=True),
-                                     widgets.HTML(description=fields[2], value=f"<b><font color='black'>{location[3]}</b>", disabled=True), 
+                                     widgets.HTML(description=fields[2], value=f"<b><a color='black' href='https://maps.google.com/?q={location[3]}'>click me</b>", disabled=True),
                                      widgets.HTML(description=fields[3], value=f"<b><font color='black'>{price[3]}</b>", disabled=True), 
                                      widgets.HTML(description=fields[4], value=f"<b><font color='black'>{rating[3]}</b>", disabled=True)
                                     ], layout=column_layout),
