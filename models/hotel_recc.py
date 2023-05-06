@@ -132,8 +132,9 @@ def get_image(name):
             return filename
     except Exception as e:
         print(e)
-        for filename in glob.glob("downloads/*jpg"):
-            return filename
+        # for filename in glob.glob("downloads/*jpg"):
+        #     return filename
+        return "etl/hotels.png"
         
 def get_hotel_output(days, final):
     fields = ['NAME', 'PRICE', 'RATING', 'EXPERIENCE','LOCATION', 'ADDRESS', "AMENITIES"]

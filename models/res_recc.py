@@ -37,9 +37,10 @@ class get_recomendation:
             for filename in glob.glob("downloads/{name}/*jpg".format(name=name)) + glob.glob("downloads/{name}/*png".format(name=name)):
                 return filename
         except Exception as e:
-            print(e)
-            for filename in glob.glob("downloads/*jpg"):
-                return filename
+            # print(e)
+            # for filename in glob.glob("downloads/*jpg"):
+            #     return filename
+            return "etl/attractions.png"
     
     def get_kmeans_recc(self,user_id):
         reviews_data_kmeans = self.reviews_data_kmeans.loc[self.reviews_data_kmeans['user_id'] == user_id]
