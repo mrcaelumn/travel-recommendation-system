@@ -183,12 +183,12 @@ def get_recc(att_df, cat_rating):
     export(unseen, seen, 'rbm/final_data/'+filename, str(user))
     return filename, user, rbm_att
 
-def filter_df(filename, user, low, high, city, att_df):
+def filter_df(filename, user, low, high, country, att_df):
     recc_df = pd.read_csv('rbm/final_data/'+filename+'/user{u}_unseen.csv'.format(u=user), index_col=0)
     recc_df.columns = ['attraction_id', 'att_name', 'att_cat', 'att_price', 'score']
     recommendation = att_df[['attraction_id','name','category','city','latitude','longitude','price','country', 'rating']].set_index('attraction_id').join(recc_df[['attraction_id','score']].set_index('attraction_id'), how="inner").reset_index().sort_values("score",ascending=False)
     
-    filtered = recommendation[(recommendation.city == city) & (recommendation.price >= low) & (recommendation.price >= low)]
+    filtered = recommendation[(recommendation.country == country) & (recommendation.price >= low) & (recommendation.price >= low)]
     
     url = pd.read_json('etl/attractions_cat.json',orient='records')
     url['id'] = url.index
