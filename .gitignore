@@ -1,14 +1,16 @@
 ### Python template
 
 models/data/
+models/mf_models/
 models/raw_data/
 models/rbm/data/
 models/mf_als/data/
+models/mf_als/weight/
 models/rbm/final_data/
 models/hybrid_model/data/
 models/hybrid_model/weight/
-models/mf_models/weight/*
-models/mf_als/weight/*
+
+
 
 *.zip
 .idea/
