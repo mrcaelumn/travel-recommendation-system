@@ -7,6 +7,8 @@ models/mf_als/data/
 models/rbm/final_data/
 models/hybrid_model/data/
 models/hybrid_model/weight/
+models/mf_models/weight/*
+models/mf_als/weight/*
 
 *.zip
 .idea/
