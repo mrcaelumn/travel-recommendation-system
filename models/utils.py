@@ -78,13 +78,13 @@ class Util(object):
         hidden_term = np.sum(np.log(1 + np.exp(wx_b)), axis = 1)
         return -hidden_term - vbias_term
     
-    def check_string(s):
+    def check_string(self, s):
         for c in s:
             if c in string.punctuation:
                 return True
         return False
     
-    def remove_special_characters(string):
+    def remove_special_characters(self, string):
         special_chars = '''!()-[]{};:'"\,<>./?@#$%^&*_~'''
         new_string = ""
         for char in string:
