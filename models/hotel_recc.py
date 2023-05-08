@@ -126,12 +126,12 @@ def get_image(name):
 
     dir_path = "downloads"
     try:
-        resp = downloader.download(name, limit=1,  output_dir=dir_path, adult_filter_off=True, force_replace=False, timeout=60)
+        downloader.download(name, limit=1,  output_dir=dir_path, adult_filter_off=True, force_replace=False, timeout=60)
         # print("download: ", resp)
         for filename in glob.glob("downloads/{name}/*jpg".format(name=name)) + glob.glob("downloads/{name}/*png".format(name=name)):
             return filename
     except Exception as e:
-        print(e)
+        # print(e)
         # for filename in glob.glob("downloads/*jpg"):
         #     return filename
         return "etl/hotels.png"
