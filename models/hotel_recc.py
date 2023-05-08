@@ -11,6 +11,7 @@ from pyspark.ml.evaluation import RegressionEvaluator
 from pyspark.ml.feature import StringIndexer
 from pyspark.sql import Row
 from geopy.geocoders import Nominatim
+from utils import Util
 
 def get_rating(x):
     val = x / 5
@@ -121,11 +122,15 @@ def get_hotel_recc(spark, usrid_s2):
 
 def get_image(name):
     # print(name)
-    
+    util = Util()
     name = name.replace("_", " ")
 
     dir_path = "downloads"
     try:
+        cont = util.check_string(name)
+        if cont:
+            name = util.remove_special_characters(name)
+
         downloader.download(name, limit=1,  output_dir=dir_path, adult_filter_off=True, force_replace=False, timeout=60)
         # print("download: ", resp)
         for filename in glob.glob("downloads/{name}/*jpg".format(name=name)) + glob.glob("downloads/{name}/*png".format(name=name)):

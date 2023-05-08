@@ -6,6 +6,8 @@ import pandas as pd
 import numpy as np
 import random
 import os
+import string
+import re
 
 class Util(object):
 
@@ -75,3 +77,21 @@ class Util(object):
         vbias_term = np.dot(v_sample, vb)
         hidden_term = np.sum(np.log(1 + np.exp(wx_b)), axis = 1)
         return -hidden_term - vbias_term
+    
+    def check_string(s):
+        for c in s:
+            if c in string.punctuation:
+                return True
+        return False
+    
+    def remove_special_characters(string):
+        special_chars = '''!()-[]{};:'"\,<>./?@#$%^&*_~'''
+        new_string = ""
+        for char in string:
+            if char.isalnum() or char.isspace():
+                new_string += char
+            elif char in special_chars:
+                continue
+        
+        final_str = ' '.join(new_string.strip().split())
+        return final_str
