@@ -8,6 +8,7 @@ import random
 import os
 import string
 import re
+from pathlib import Path
 
 class Util(object):
 
@@ -95,3 +96,16 @@ class Util(object):
         
         final_str = ' '.join(new_string.strip().split())
         return final_str
+    
+    def read_newline_json(self, path):
+        ## Reading file containing hotel details after removing duplicates and exploding amenities
+        df_paths = Path(path).glob("*.json")
+        df_list = []
+        # loop through the files and read them into dataframes
+        for file in df_paths:
+            df = pd.read_json(file, lines=True)
+            df_list.append(df)
+        # concatenate all dataframes into a single dataframe
+        df = pd.concat(df_list)
+
+        return df
